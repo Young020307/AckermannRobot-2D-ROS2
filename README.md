@@ -40,7 +40,11 @@ source install/setup.bash
 ### 建图 (Cartographer SLAM)
 
 ```bash
-ros2 launch robot_slam slam.launch.py start_gz:=true
+# 终端1: Gazebo + 机器人 (不含键盘控制)
+ros2 launch ackermann_robot map.launch.py
+
+# 终端2: 键盘控制（需要时手动启动）
+ros2 launch ackermann_robot keyboard_control.launch.py
 ```
 
 建图完成后保存 pbstream：
@@ -56,26 +60,18 @@ ros2 service call /write_state cartographer_ros_msgs/srv/WriteState \
 # Gazebo + 机器人
 ros2 launch ackermann_robot map.launch.py
 
-# AMCL 定位 (默认)
-ros2 launch robot_slam navigation.launch.py
+# AMCL + DWB
+bash scripts/nav_amcl_dwb.sh
 
-# Cartographer 纯定位
-ros2 launch robot_slam navigation.launch.py localization_engine:=cartographer
-
-# 启用 NeuPAN 神经网络局部规划器 (DWB 为备份，运行时切换)
-ros2 launch robot_slam navigation.launch.py localization_engine:=cartographer use_neupan:=true
-```
-
-### 运行时切换规划器
-
-```bash
-ros2 param set /cmd_vel_mux active_planner neupan  # 切到 NeuPAN
-ros2 param set /cmd_vel_mux active_planner dwb     # 切回 DWB
+# AMCL + NeuPAN (需两个终端)
+bash scripts/nav_amcl_neupan.sh       # Gazebo + AMCL + Nav2 规划
+bash scripts/run_neupan.sh            # NeuPAN 节点 (conda neupan)
 ```
 
 ### 键盘控制
 
 ```bash
+# 建图或导航时需要手动控制时，单独启动
 ros2 launch ackermann_robot keyboard_control.launch.py
 ```
 

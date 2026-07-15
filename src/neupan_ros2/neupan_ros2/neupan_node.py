@@ -506,10 +506,7 @@ class NeupanCore(Node):
         )
 
     def run(self) -> None:
-        """Execute main control loop at fixed frequency.
-
-        Note: Fine-grained locking is handled within each helper method.
-        """
+        """Execute main control loop at fixed frequency."""
         # Step 1: Get robot transform (locks internally for robot_state write)
         if not self._get_robot_transform():
             return
@@ -673,6 +670,12 @@ class NeupanCore(Node):
             if (self.neupan_planner.initial_path is None
                     or self.refresh_initial_path):
                 self.neupan_planner.set_initial_path(initial_point_list)
+                # CRITICAL: a new path (possibly from a new goal) means the
+                # old arrive/stop flags are stale. Reset so the control loop
+                # resumes publishing non-zero velocity.
+                self.neupan_planner.reset()
+                self.arrive = False
+                self.stop = False
 
     def goal_callback(self, goal: PoseStamped) -> None:
         """Update goal and regenerate initial path.
@@ -705,6 +708,11 @@ class NeupanCore(Node):
         # Lock only when accessing shared state and modifying planner
         with self._state_lock:
             self.goal = new_goal
+
+            # CRITICAL: reset arrival/stop flags so the control loop resumes
+            # publishing non-zero velocity for the new goal.
+            self.arrive = False
+            self.stop = False
 
             self.get_logger().debug(
                 f"Current state: {self.robot_state.tolist()}"

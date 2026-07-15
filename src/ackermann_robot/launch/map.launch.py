@@ -102,17 +102,6 @@ def generate_launch_description():
         remappings=[('/odometry/filtered', '/odometry/filtered')] 
     )
 
-    # ================= 键盘控制 (↑↓←→) =================
-    keyboard_control = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource([
-            PathJoinSubstitution([
-                FindPackageShare('ackermann_robot'),
-                'launch',
-                'keyboard_control.launch.py'
-            ])
-        ])
-    )
-
     # ================= 返回 Launch Description =================
     return LaunchDescription([
         robot_state_publisher,
@@ -132,14 +121,6 @@ def generate_launch_description():
             event_handler=OnProcessExit(
                 target_action=load_joint_state_broadcaster,
                 on_exit=[load_ackermann_controller],
-            )
-        ),
-
-        # 键盘控制在阿克曼控制器加载后启动
-        RegisterEventHandler(
-            event_handler=OnProcessExit(
-                target_action=load_ackermann_controller,
-                on_exit=[keyboard_control],
             )
         ),
     ])
