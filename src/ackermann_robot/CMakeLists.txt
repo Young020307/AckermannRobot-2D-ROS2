@@ -24,10 +24,8 @@ install(DIRECTORY
   launch
   config
   meshes
-  worlds
   rviz
   maps
-  models
   xacro
   DESTINATION share/${PROJECT_NAME}
 )
