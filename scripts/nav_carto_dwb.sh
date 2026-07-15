@@ -11,4 +11,4 @@ ros2 launch ackermann_robot map.launch.py &
 sleep 5
 
 echo "=== Cartographer 纯定位 + DWB ==="
-ros2 launch robot_slam navigation.launch.py localization_engine:=cartographer
+ros2 launch robot_slam navigation_cartographer.launch.py
