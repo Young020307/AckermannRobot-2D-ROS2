@@ -60,10 +60,51 @@ src/neupan_ros2/train/model/
 src/neupan_ros2/config/dune_checkpoint/
 
 # Graphviz / temp files
-
-# Graphviz / temp files
 *.gv
 *.pdf
 
 # ROS 2 log db
 log/*.db3
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+*.so.*
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake generated files
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+install_manifest.txt
+compile_commands.json
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# vcpkg
+vcpkg_installed/
+
+# Test output & cache
+Testing/
+.cache/

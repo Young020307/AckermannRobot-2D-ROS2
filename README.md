@@ -1,12 +1,22 @@
-# ackermann_robot_simulation
+# AckermannRobot-2D-ROS2
 
-### 编译与环境设置
+ROS2 阿克曼底盘 2D 激光雷达导航与建图仿真项目。
 
-* **编译指令：**
-    在 ackermann_robot_simulation 路径下直接执行 colcon build。
-* **环境加载：**
-    为了避免每次编译后都需要手动 source install/setup.bash，强烈建议将其路径添加到系统环境中。
-* **编译前依赖包安装：**
+## 项目结构
+
+```
+src/
+├── ackermann_robot/    # 机器人模型 (XACRO/URDF)、Gazebo 仿真、控制器配置、键盘控制、cmd_vel_mux
+├── robot_slam/         # Nav2 导航参数、Cartographer SLAM/纯定位、AMCL 定位、launch 文件
+├── neupan_ros2/        # NeuPAN 神经网络局部规划器 + DUNE 模型训练
+├── gazebo_worlds/      # Gazebo 世界模型与地图资源
+└── maps/               # 预建地图 (pgm/yaml/pbstream)
+```
+
+## 编译与环境设置
+
+```bash
+# 依赖安装
 sudo apt update && sudo apt install -y \
   ros-humble-topic-tools \
   ros-humble-robot-localization \
@@ -14,62 +24,75 @@ sudo apt update && sudo apt install -y \
   ros-humble-pointcloud-to-laserscan \
   ros-humble-twist-stamper \
   ros-humble-pcl-ros \
-  ros-humble-pcl-conversions
+  ros-humble-pcl-conversions \
   ros-humble-gazebo-ros2-control \
   ros-humble-ros2-control \
   ros-humble-ros2-controllers \
   ros-humble-ackermann-steering-controller
-* **清除与重新编译：**
-  删除旧的构建文件，确保全新安装：
-  rm -rf build install log
-  重新编译：
-  colcon build
-  加载环境：
-  source install/setup.bash
 
-### 重要注意事项：显卡驱动
+# 编译
+colcon build --symlink-install
+source install/setup.bash
+```
 
-注意检查显卡驱动是否安装并配置正确！仿真设置中调用了 GPU。如果未正确安装驱动，将导致仿真错误！
+## 运行
 
-### 特殊配置说明
+### 建图 (Cartographer SLAM)
 
-1.  **里程计重映射与融合：**
-   ros2_control 中原始里程计输出已重映射：odom -> odom_wheel
-   EKF融合后的输出话题为：/odometry/filtered
+```bash
+ros2 launch robot_slam slam.launch.py start_gz:=true
+```
 
-3.  **开发状态：**
-   默认以里程计融合模型进行开发。
+建图完成后保存 pbstream：
+```bash
+ros2 service call /finish_trajectory cartographer_ros_msgs/srv/FinishTrajectory "{trajectory_id: 0}"
+ros2 service call /write_state cartographer_ros_msgs/srv/WriteState \
+  "{filename: '/home/young/AckermannRobot-2D/src/maps/my_map.pbstream'}"
+```
 
-4. **_2d文件说明:**
-   后缀为2D的是将3D点云压缩成2D点云进行后续处理
+### 导航
 
-### 运行与演示
+```bash
+# Gazebo + 机器人
+ros2 launch ackermann_robot map.launch.py
 
-#### 模型预览
+# AMCL 定位 (默认)
+ros2 launch robot_slam navigation.launch.py
 
-* **RViz 预览小车模型：**
-  ros2 launch ackermann_robot review.launch.py
-* **Gazebo 预览小车模型（基于 EKF 融合）：**
-  ros2 launch ackermann_robot gazebo.launch.py
+# Cartographer 纯定位
+ros2 launch robot_slam navigation.launch.py localization_engine:=cartographer
 
-#### 控制
+# 启用 NeuPAN 神经网络局部规划器 (DWB 为备份，运行时切换)
+ros2 launch robot_slam navigation.launch.py localization_engine:=cartographer use_neupan:=true
+```
 
-* **键盘控制：**
-  ros2 launch ackermann_robot keyboard_control.launch.py
+### 运行时切换规划器
 
-#### Nav2 导航
+```bash
+ros2 param set /cmd_vel_mux active_planner neupan  # 切到 NeuPAN
+ros2 param set /cmd_vel_mux active_planner dwb     # 切回 DWB
+```
 
-1.  **轮式里程计 + IMU 融合 (EKF)**
-  仿真启动文件：ros2 launch ackermann_robot gazebo.launch.py
-  Nav2 启动文件：ros2 launch ackermann_navigation2 nav2_2d.launch.py
-  
-2.  **轮式里程计 + IMU 融合 + rf2o雷达里程计 (EKF)**
-  仿真启动文件：ros2 launch ackermann_robot gazebo.launch.py
-  Nav2 启动文件：ros2 launch ackermann_navigation2 nav2_2d_rf2.launch.py
+### 键盘控制
 
-#### Nav2 未知环境导航建图
+```bash
+ros2 launch ackermann_robot keyboard_control.launch.py
+```
 
-* **运行 Gazebo：**
-    ros2 launch ackermann_robot gazebo.launch.py
-* **启动 Nav2 SLAM：**
-    ros2 launch ackermann_navigation2 nav2_slam_2d.launch.py
+## 车辆参数
+
+| 参数 | 值 |
+|------|-----|
+| 运动模型 | Ackermann |
+| 尺寸 | 0.70m × 0.52m |
+| 轴距 | 0.593m |
+| 最大转向角 | ±0.52 rad |
+| 最小转弯半径 | 1.05m |
+| 最大速度 | 1.5 m/s |
+| 激光雷达 | 单线 360°，0.15-25m，10Hz |
+| IMU | 100Hz |
+
+## 里程计
+
+- `ros2_control` 原始里程计重映射：`odom → /odom_wheel`
+- EKF 融合后输出：`/odometry/filtered`
