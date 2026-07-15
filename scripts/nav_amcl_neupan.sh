@@ -9,5 +9,5 @@ echo "=== Gazebo + 机器人 ==="
 ros2 launch ackermann_robot map.launch.py &
 sleep 5
 
-echo "=== AMCL + Nav2 (planner/bt/smoother, 不含 DWB) ==="
-ros2 launch robot_slam navigation_neupan.launch.py
+echo "=== AMCL + Nav2 (NeuPAN 控制) ==="
+ros2 launch robot_slam navigation.launch.py localization_engine:=amcl use_neupan:=true

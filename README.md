@@ -63,9 +63,20 @@ ros2 launch ackermann_robot map.launch.py
 # AMCL + DWB
 bash scripts/nav_amcl_dwb.sh
 
-# AMCL + NeuPAN (需两个终端)
-bash scripts/nav_amcl_neupan.sh       # Gazebo + AMCL + Nav2 规划
+# AMCL + NeuPAN (需另开终端启动 NeuPAN 节点)
+bash scripts/nav_amcl_neupan.sh       # Gazebo + AMCL + Nav2
 bash scripts/run_neupan.sh            # NeuPAN 节点 (conda neupan)
+
+# Cartographer 纯定位 + DWB（需先有 pbstream 地图）
+bash scripts/nav_carto_dwb.sh
+
+# 也可手动组合参数：
+#   localization_engine: "amcl" (默认) 或 "cartographer"
+#   use_neupan: true/false
+#
+#   ros2 launch robot_slam navigation.launch.py \
+#     localization_engine:=cartographer use_neupan:=true \
+#     pbstream_file:=/path/to/my_map.pbstream
 ```
 
 ### 键盘控制

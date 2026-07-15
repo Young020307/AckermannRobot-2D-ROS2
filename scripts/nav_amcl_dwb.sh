@@ -10,4 +10,4 @@ ros2 launch ackermann_robot map.launch.py &
 sleep 5
 
 echo "=== AMCL + DWB ==="
-ros2 launch robot_slam navigation_dwb.launch.py
+ros2 launch robot_slam navigation.launch.py localization_engine:=amcl
