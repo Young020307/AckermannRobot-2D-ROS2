@@ -1,14 +1,8 @@
 """
 Cartographer 2D SLAM — 建图模式
 
-运行后保存 pbstream 供纯定位模式使用:
-    ros2 service call /finish_trajectory cartographer_ros_msgs/srv/FinishTrajectory "{trajectory_id: 0}"
-    ros2 service call /write_state cartographer_ros_msgs/srv/WriteState "{filename: '/home/young/AckermannRobot-2D/src/maps/my_map.pbstream'}"
-
-pbstream 转 pgm+yaml（可选，给 AMCL 用）:
-    ros2 run cartographer_ros cartographer_pbstream_to_ros_map \
-        -pbstream_filename src/maps/my_map.pbstream \
-        -map_filestem src/maps/my_map_carto
+完成后一键保存 pbstream + PGM + YAML:
+    bash scripts/save_map.sh
 """
 
 import os
@@ -71,8 +65,8 @@ def generate_launch_description():
             '-configuration_basename', 'my_robot_cartographer_2d.lua'
         ],
         remappings=[
-            # 控制器发布的是 /odom_wheel，映射到 cartographer 期望的 odom
-            ('odom', '/odom_wheel'),
+            # 与纯定位一致：使用 EKF 融合后的里程计作为 Cartographer 运动先验
+            ('odom', '/odometry/filtered'),
         ]
     )
 
