@@ -2,24 +2,32 @@
 
 ## Problem
 
-Hybrid A* and NeuPAN model `0.52 rad` as the bicycle-model center steering angle. With a `0.593 m` wheelbase and `0.510 m` front track, the ROS 2 Ackermann controller expands that command to approximately `0.6496 rad` on the inside wheel and `0.4307 rad` on the outside wheel. The XACRO currently limits both steering joints to `0.52 rad`, so the inside joint saturates and the simulated vehicle cannot execute the planners' `1.05 m` minimum-radius path.
+The vehicle model and `ros2_control` interface both define `0.52 rad` as the physical limit of each front steering joint. Hybrid A* and NeuPAN currently use the same value as a bicycle-model center steering limit. With a `0.593 m` wheelbase and `0.510 m` front track, a `0.52 rad` center command requires approximately `0.6496 rad` at the inside wheel, so the controller requests motion that the physical joint cannot execute.
 
-The resulting tracking error can prevent NeuPAN from reaching a Reeds-Shepp gear-change point. NeuPAN then holds a zero-length reference horizon at that point and commands nearly zero speed indefinitely.
+This curvature mismatch lets tracking error accumulate. At a Reeds-Shepp gear-change point, NeuPAN can then remain outside its arrival threshold, collapse its reference horizon to the unreachable cusp, and command nearly zero speed indefinitely.
 
 ## Selected design
 
-Treat `0.52 rad` as the center-equivalent steering limit, as requested. Raise both simulated front steering joint limits symmetrically from `±0.52 rad` to `±0.66 rad`. The new limit covers the theoretical `0.6496 rad` inside-wheel requirement with a small numerical margin.
+Keep the physical steering-joint and `ros2_control` command limits at `±0.52 rad`. Convert that inside-wheel limit into the bicycle-model center limit:
 
-Keep the following unchanged:
+```text
+center_limit = atan(wheelbase / (wheelbase / tan(wheel_limit) + track / 2))
+             = 0.430678 rad
+```
 
-- Hybrid A* minimum turning radius: `1.05 m`;
-- NeuPAN steering limit: `±0.52 rad`;
-- NeuPAN initial-path minimum radius: `1.05 m`;
-- controller wheelbase and front track;
-- NeuPAN arrival thresholds and tracking weights.
+Use rounded, mutually consistent planner settings:
+
+- NeuPAN runtime center steering limit: `±0.43 rad`;
+- NeuPAN runtime initial-path minimum radius: `1.30 m`;
+- Hybrid A* minimum turning radius: `1.30 m`;
+- NeuPAN training configuration: the same `±0.43 rad` and `1.30 m` values.
+
+Keep reference speed, steering-rate limit, tracking weights, arrival thresholds, wheelbase, and track unchanged. Keep the previously implemented conversion from NeuPAN steering angle to ROS yaw rate.
+
+The DUNE checkpoint encodes collision geometry rather than the vehicle's maximum steering command, so this control-bound correction does not require retraining. Updating the training YAML keeps future training runs consistent.
 
 ## Verification
 
-Add a geometry consistency test that reads the controller and planner configuration, calculates the required inside-wheel angle, and verifies the XACRO joint limit can represent it. The test will also verify the Hybrid A* and NeuPAN minimum-radius assumptions remain consistent with the center steering limit.
+Add geometry consistency tests that read the physical joint limit, `ros2_control` command limits, controller geometry, NeuPAN runtime/training configuration, and Hybrid A* configuration. The tests calculate the center-equivalent limit and verify all planner radii and steering bounds agree.
 
-After the test passes, rebuild `ackermann_robot`. A running Gazebo instance must be restarted because joint limits are loaded when the robot model is spawned. Runtime verification will compare `steering_angle_command` and `steer_positions` during a maximum-curvature turn; the inside joint must no longer stop at `0.52 rad`.
+Rebuild `ackermann_robot`, `hybrid_astar_planner`, and `neupan_ros2`. Gazebo and NeuPAN must be restarted before runtime testing because the robot model and planner configuration are loaded at startup.
