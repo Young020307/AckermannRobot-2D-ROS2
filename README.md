@@ -121,6 +121,44 @@ bash scripts/run_neupan.sh
 bash scripts/nav_carto_neupan_filtered.sh
 ```
 
+### RViz 多航点导航（到点后人工放行）
+
+导航 launch 会同时启动 `waypoint_mission`。RViz 的 **2D Goal Pose** 默认发送到
+`/waypoint_mission/goal`：连续点击目标点后，系统按点击顺序逐段调用 Hybrid A*
+规划，并立即在地图中显示真实可行路径。预览路径仅用于显示，在确认任务前车辆
+不会运动。
+
+航点标记含义：
+
+- **橙色**：目标点正在排队或规划。
+- **绿色**：该目标点及其前一航段规划成功，数字表示执行顺序。
+- **红色**：该目标点不可达，已从任务序列中排除；后续目标仍从上一个绿色点规划。
+- **黄色**：车辆当前正在前往或已经到达并等待放行的目标点。
+
+连续点击完成后，等待状态回到 `IDLE`，再确认并启动任务：
+
+```bash
+# 观察任务状态
+ros2 topic echo --qos-durability transient_local /waypoint_mission/status
+
+# 确认预览路线并开始第一段
+ros2 service call /waypoint_mission/plan std_srvs/srv/Trigger '{}'
+
+# 每次状态变为 WAITING 后，人工放行到下一点
+ros2 service call /waypoint_mission/continue std_srvs/srv/Trigger '{}'
+
+# 在 IDLE、WAITING、COMPLETED 或 FAILED 状态清空任务
+ros2 service call /waypoint_mission/clear std_srvs/srv/Trigger '{}'
+```
+
+到达中间目标点后，NeuPAN输出零速度，车辆会一直停车，直到成功调用
+`/waypoint_mission/continue`。到达最后一个目标点后状态变为 `COMPLETED`，继续
+调用放行服务不会启动车辆。
+
+原有单点导航入口 `/goal_pose` 仍然保留。使用单点模式时，在 RViz 中把 2D Goal
+Pose 的 Topic 改回 `/goal_pose`；不要同时操作 `/goal_pose` 与
+`/waypoint_mission/goal`，否则两个导航入口会同时更新当前路线。
+
 ### 键盘控制
 
 ```bash

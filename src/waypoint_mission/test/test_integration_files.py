@@ -40,3 +40,22 @@ def test_rviz_goal_tool_defaults_to_waypoint_mission_input():
     )[1].split('Transformation:', maxsplit=1)[0]
 
     assert 'Value: /waypoint_mission/goal' in set_goal
+
+
+def test_readme_documents_complete_waypoint_operator_contract():
+    readme = read('README.md')
+
+    for interface in (
+        '/waypoint_mission/goal',
+        '/waypoint_mission/plan',
+        '/waypoint_mission/continue',
+        '/waypoint_mission/clear',
+        '/waypoint_mission/status',
+    ):
+        assert interface in readme
+    for color in ('橙色', '绿色', '红色', '黄色'):
+        assert color in readme
+    assert 'Hybrid A*' in readme
+    assert '一直停车' in readme
+    assert '/goal_pose' in readme
+    assert '不要同时' in readme
