@@ -25,6 +25,7 @@ neupan_node:
     scan_topic: '/scan'                    # 360° 2D LaserScan
     plan_input_topic: '/plan'             # From Nav2 planner_server (global path)
     goal_topic: '/goal_pose'              # Nav2 goal (optional, path-based navigation)
+    arrival_topic: '/neupan_arrived'      # Segment arrival state for waypoint missions
     plan_output_topic: '/neupan_plan'     # Optimized trajectory (visualization)
     ref_state_topic: '/neupan_ref_state'  # Reference state (visualization)
     initial_path_topic: '/neupan_initial_path'

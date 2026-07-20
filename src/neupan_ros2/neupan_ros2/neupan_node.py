@@ -18,7 +18,11 @@ import numpy as np
 import numpy.typing as npt
 import rclpy
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, QoSReliabilityPolicy
+from rclpy.qos import (
+    QoSDurabilityPolicy,
+    QoSProfile,
+    QoSReliabilityPolicy,
+)
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.callback_groups import ReentrantCallbackGroup, MutuallyExclusiveCallbackGroup
 from ament_index_python.packages import get_package_share_directory
@@ -27,6 +31,7 @@ import tf2_ros
 from geometry_msgs.msg import Twist, PoseStamped
 from nav_msgs.msg import Path
 from sensor_msgs.msg import LaserScan
+from std_msgs.msg import Bool
 
 try:
     from neupan import neupan
@@ -39,7 +44,7 @@ except ImportError as e:
 
 # Import local modules
 from neupan_ros2.visualization_manager import VisualizationManager
-from neupan_ros2.utils import yaw_to_quat, quat_to_yaw
+from neupan_ros2.utils import ArrivalReporter, yaw_to_quat, quat_to_yaw
 
 
 class NeupanCore(Node):
@@ -107,6 +112,7 @@ class NeupanCore(Node):
         self.declare_parameter("scan_topic", "/scan")
         self.declare_parameter("plan_input_topic", "/plan")
         self.declare_parameter("goal_topic", "/goal_pose")
+        self.declare_parameter("arrival_topic", "/neupan_arrived")
 
         # === Configuration Loading ===
         # Get robot configuration directory (set by launch file)
@@ -232,7 +238,10 @@ class NeupanCore(Node):
             f"Robot dimensions - Length: {self.neupan_planner.robot.length:.3f}m, "
             f"Width: {self.neupan_planner.robot.width:.3f}m"
         )
-        if hasattr(self.neupan_planner.robot, 'wheelbase') and self.neupan_planner.robot.wheelbase is not None:
+        if (
+            hasattr(self.neupan_planner.robot, 'wheelbase')
+            and self.neupan_planner.robot.wheelbase is not None
+        ):
             self.get_logger().info(
                 f"Robot wheelbase: {self.neupan_planner.robot.wheelbase:.3f}m"
             )
@@ -269,6 +278,18 @@ class NeupanCore(Node):
             self.get_parameter("initial_path_topic").get_parameter_value().string_value,
             10
         )
+        arrival_qos = QoSProfile(
+            depth=1,
+            reliability=QoSReliabilityPolicy.RELIABLE,
+            durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+        )
+        self.arrival_pub = self.create_publisher(
+            Bool,
+            self.get_parameter("arrival_topic").get_parameter_value().string_value,
+            arrival_qos,
+        )
+        self.arrival_reporter = ArrivalReporter()
+        self.arrival_pub.publish(Bool(data=self.arrival_reporter.reset()))
 
         # Initialize visualization manager (handles all visualization independently)
         viz_config = {
@@ -457,6 +478,10 @@ class NeupanCore(Node):
         with self._state_lock:
             self.stop = info["stop"]
             self.arrive = info["arrive"]
+            arrival_update = self.arrival_reporter.update(info["arrive"])
+
+        if arrival_update is not None:
+            self.arrival_pub.publish(Bool(data=arrival_update))
 
         # Logging outside lock
         if not has_obstacles:
@@ -666,6 +691,7 @@ class NeupanCore(Node):
             initial_point_array[:, i:i + 1] for i in range(n_poses)
         ]
 
+        path_accepted = False
         with self._state_lock:
             if (self.neupan_planner.initial_path is None
                     or self.refresh_initial_path):
@@ -676,6 +702,11 @@ class NeupanCore(Node):
                 self.neupan_planner.reset()
                 self.arrive = False
                 self.stop = False
+                self.arrival_reporter.reset()
+                path_accepted = True
+
+        if path_accepted:
+            self.arrival_pub.publish(Bool(data=False))
 
     def goal_callback(self, goal: PoseStamped) -> None:
         """Update goal and regenerate initial path.

@@ -10,7 +10,29 @@ Date: 2025.11.15
 """
 
 from math import sin, cos, atan2
+from typing import Optional
+
 from geometry_msgs.msg import Quaternion
+
+
+class ArrivalReporter:
+    """Track and report changes to a segment's arrival state."""
+
+    def __init__(self) -> None:
+        self._last: Optional[bool] = None
+
+    def reset(self) -> bool:
+        """Start a new segment and force a non-arrived report."""
+        self._last = False
+        return False
+
+    def update(self, value: bool) -> Optional[bool]:
+        """Return a changed value, or None when it is unchanged."""
+        value = bool(value)
+        if value == self._last:
+            return None
+        self._last = value
+        return value
 
 
 def yaw_to_quat(yaw: float) -> Quaternion:
