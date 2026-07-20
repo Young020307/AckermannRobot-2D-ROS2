@@ -44,7 +44,12 @@ except ImportError as e:
 
 # Import local modules
 from neupan_ros2.visualization_manager import VisualizationManager
-from neupan_ros2.utils import ArrivalReporter, yaw_to_quat, quat_to_yaw
+from neupan_ros2.utils import (
+    ArrivalReporter,
+    control_to_yaw_rate,
+    quat_to_yaw,
+    yaw_to_quat,
+)
 
 
 class NeupanCore(Node):
@@ -809,7 +814,9 @@ class NeupanCore(Node):
 
         Args:
             vel: Velocity array (2, 1)
-                 containing [linear_speed, angular_speed], or None
+                 containing [linear_speed, turn_control], or None. The turn
+                 control is steering angle for Ackermann kinematics and yaw
+                 rate for differential-drive kinematics.
             stop: Whether the robot should stop (collision risk)
             arrive: Whether the robot has arrived at goal
 
@@ -821,14 +828,20 @@ class NeupanCore(Node):
             return Twist()
 
         speed = float(vel[0, 0])
-        steer = float(vel[1, 0])
+        turn_control = float(vel[1, 0])
 
         if stop or arrive:
             return Twist()
         else:
             action = Twist()
             action.linear.x = speed
-            action.angular.z = steer
+            robot = self.neupan_planner.robot
+            action.angular.z = control_to_yaw_rate(
+                speed,
+                turn_control,
+                robot.kinematics,
+                robot.L,
+            )
             return action
 
 

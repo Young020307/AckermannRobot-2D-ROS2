@@ -9,10 +9,24 @@ Developer: Li Chengyang <kevinladlee@gmail.com>
 Date: 2025.11.15
 """
 
-from math import sin, cos, atan2
+from math import atan2, cos, sin, tan
 from typing import Optional
 
 from geometry_msgs.msg import Quaternion
+
+
+def control_to_yaw_rate(
+    speed: float,
+    turn_control: float,
+    kinematics: str,
+    wheelbase: Optional[float],
+) -> float:
+    """Convert NeuPAN's second control component to ROS yaw rate."""
+    if kinematics != 'acker':
+        return float(turn_control)
+    if wheelbase is None or wheelbase <= 0.0:
+        raise ValueError('Ackermann wheelbase must be positive')
+    return float(speed) * tan(float(turn_control)) / float(wheelbase)
 
 
 class ArrivalReporter:

@@ -67,7 +67,7 @@ Run:
 
 ```bash
 source /opt/ros/humble/setup.bash
-PYTHONPATH=src/neupan_ros2 python3 -m pytest -q src/neupan_ros2/test/test_command_conversion.py
+PYTHONPATH=src/neupan_ros2:$PYTHONPATH python3 -m pytest -q src/neupan_ros2/test/test_command_conversion.py
 ```
 
 Expected: collection fails because `control_to_yaw_rate` does not exist.
@@ -144,7 +144,7 @@ Update the method documentation to describe `[linear_speed, turn_control]` and c
 
 ```bash
 source /opt/ros/humble/setup.bash
-PYTHONPATH=src/neupan_ros2 python3 -m pytest -q src/neupan_ros2/test
+PYTHONPATH=src/neupan_ros2:$PYTHONPATH python3 -m pytest -q src/neupan_ros2/test
 ```
 
 Expected: all `neupan_ros2` tests pass.
