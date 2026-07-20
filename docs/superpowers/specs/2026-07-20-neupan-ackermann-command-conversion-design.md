@@ -12,15 +12,15 @@ NeuPAN's Ackermann model returns a two-element control vector `[v, steering_angl
 
 ## Design
 
-Add a pure utility that converts Ackermann speed and steering angle to yaw rate:
+Add a pure utility that converts NeuPAN's second control component to yaw rate. For Ackermann kinematics it applies:
 
 ```text
 yaw_rate = speed * tan(steering_angle) / wheelbase
 ```
 
-The utility validates that wheelbase is positive. It naturally preserves the correct sign for forward and reverse motion. Zero speed produces zero yaw rate.
+The utility validates that Ackermann wheelbase is positive. It naturally preserves the correct sign for forward and reverse motion. Zero speed produces zero yaw rate. For differential-drive kinematics, where NeuPAN's second control component is already yaw rate, it returns that component unchanged.
 
-`NeupanCore.generate_twist_msg` will continue to publish zero commands when the planner returns no action, requests an emergency stop, or reports arrival. Otherwise it will publish the NeuPAN speed as `linear.x` and the converted yaw rate as `angular.z`, using the wheelbase already loaded by NeuPAN's robot model.
+`NeupanCore.generate_twist_msg` will continue to publish zero commands when the planner returns no action, requests an emergency stop, or reports arrival. Otherwise it will publish the NeuPAN speed as `linear.x` and the converted yaw rate as `angular.z`, using the kinematics and wheelbase already loaded by NeuPAN's robot model.
 
 No planner weights, speed limits, Hybrid A* parameters, mux behavior, or physical steering limits are changed in this fix.
 
@@ -32,6 +32,7 @@ Unit tests will cover:
 - reverse motion conversion, including the sign seen in the reported failure;
 - zero speed;
 - invalid wheelbase;
+- differential-drive passthrough;
 - integration of the conversion into `generate_twist_msg` while retaining stop and arrival behavior.
 
 The package's existing tests and Python syntax/compile checks will run after the focused regression tests.
