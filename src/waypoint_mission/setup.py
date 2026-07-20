@@ -22,5 +22,10 @@ setup(
     description='Manual-release multi-waypoint mission manager for ROS 2.',
     license='Apache-2.0',
     tests_require=['pytest'],
-    entry_points={'console_scripts': []},
+    entry_points={
+        'console_scripts': [
+            'waypoint_mission_node = '
+            'waypoint_mission.waypoint_mission_node:main',
+        ],
+    },
 )
