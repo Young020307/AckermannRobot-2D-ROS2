@@ -1,9 +1,10 @@
 import os
+import yaml
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, RegisterEventHandler
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, RegisterEventHandler
 from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import PathJoinSubstitution, Command
+from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, Command
 from launch_ros.substitutions import FindPackageShare
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -13,6 +14,12 @@ def generate_launch_description():
     package_name = 'ackermann_robot'
     pkg_share = get_package_share_directory(package_name)
 
+    # 加载集中配置文件
+    slam_pkg_share = get_package_share_directory('robot_slam')
+    config_path = os.path.join(slam_pkg_share, 'config', 'sim_config.yaml')
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
     # 1. 解析 URDF (XACRO)
     xacro_file = os.path.join(pkg_share, 'xacro', 'robot.xacro')
     robot_description_content = ParameterValue(
@@ -20,7 +27,16 @@ def generate_launch_description():
         value_type=str
     )
 
-    world_file_path = os.path.join(get_package_share_directory('gazebo_worlds'), 'worlds', 'mini.world')
+    # ====== 世界文件 (默认值来自 sim_config.yaml，CLI 可覆盖) ======
+    world_default = config.get('simulation', {}).get('world', 'mini.world')
+    world_arg = DeclareLaunchArgument(
+        'world',
+        default_value=world_default,
+        description='Gazebo 世界文件名 (位于 gazebo_worlds/worlds/ 目录下，编辑 sim_config.yaml 可改默认值)'
+    )
+    world_file_path = PathJoinSubstitution([
+        FindPackageShare('gazebo_worlds'), 'worlds', LaunchConfiguration('world')
+    ])
 
     # 设置 GAZEBO_MODEL_PATH 环境变量
     pkg_share_env = os.pathsep + os.path.join(get_package_prefix(package_name), 'share')
@@ -104,6 +120,7 @@ def generate_launch_description():
 
     # ================= 返回 Launch Description =================
     return LaunchDescription([
+        world_arg,
         robot_state_publisher,
         gazebo_launch,
         spawn_entity,

@@ -6,6 +6,7 @@ Cartographer 2D SLAM — 建图模式
 """
 
 import os
+import yaml
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.conditions import IfCondition, UnlessCondition
@@ -21,15 +22,24 @@ def generate_launch_description():
     pkg_robot = 'ackermann_robot'
     pkg_carto = 'cartographer_ros'
 
-    # ====== 命令行参数 ======
+    # 加载集中配置文件
+    config_path = os.path.join(
+        get_package_share_directory(pkg_slam), 'config', 'sim_config.yaml')
+    with open(config_path, 'r') as f:
+        config = yaml.safe_load(f)
+
+    # ====== 命令行参数 (默认值来自 sim_config.yaml，CLI 可覆盖) ======
+    sim_cfg = config.get('simulation', {})
+    filter_cfg = config.get('scan_filter', {})
+
     use_sim_time_arg = DeclareLaunchArgument(
         'use_sim_time',
-        default_value='true',
+        default_value=str(sim_cfg.get('use_sim_time', True)).lower(),
         description='使用仿真时间 (Gazebo 下必须为 true)'
     )
     start_rviz_arg = DeclareLaunchArgument(
         'start_rviz',
-        default_value='true',
+        default_value=str(sim_cfg.get('start_rviz', True)).lower(),
         description='是否启动 RViz2'
     )
     start_gz_arg = DeclareLaunchArgument(
@@ -37,10 +47,16 @@ def generate_launch_description():
         default_value='false',
         description='是否同时启动 Gazebo + 机器人 (单独使用 Cartographer 时设为 false)'
     )
+    use_scan_filter_arg = DeclareLaunchArgument(
+        'use_scan_filter',
+        default_value=str(filter_cfg.get('enabled', False)).lower(),
+        description='是否启用 Bayesian 动态障碍物扫描滤波器'
+    )
 
     use_sim_time = LaunchConfiguration('use_sim_time')
     start_rviz = LaunchConfiguration('start_rviz')
     start_gz = LaunchConfiguration('start_gz')
+    use_scan_filter = LaunchConfiguration('use_scan_filter')
 
     # ====== 0) (可选) 启动 Gazebo + 机器人 map.launch.py ======
     gazebo_launch = IncludeLaunchDescription(
@@ -52,7 +68,20 @@ def generate_launch_description():
         condition=IfCondition(start_gz)
     )
 
-    # ====== 1) Cartographer Node ======
+    # ====== 1) Bayesian 动态障碍物扫描滤波器 (可选) ======
+    scan_filter_node = Node(
+        package='scan_filter',
+        executable='scan_filter_node',
+        name='scan_filter_node',
+        output='screen',
+        parameters=[os.path.join(
+            get_package_share_directory(pkg_slam), 'config', 'scan_filter_params.yaml'
+        )],
+        condition=IfCondition(use_scan_filter),
+    )
+
+    # ====== 2) Cartographer Node ======
+    # 当 use_scan_filter=true 时，Cartographer 订阅 /scan_filtered 代替 /scan
     cartographer_node = Node(
         package='cartographer_ros',
         executable='cartographer_node',
@@ -65,12 +94,29 @@ def generate_launch_description():
             '-configuration_basename', 'my_robot_cartographer_2d.lua'
         ],
         remappings=[
-            # 与纯定位一致：使用 EKF 融合后的里程计作为 Cartographer 运动先验
             ('odom', '/odometry/filtered'),
-        ]
+            ('scan', '/scan_filtered'),
+        ],
+        condition=IfCondition(use_scan_filter),
+    )
+    cartographer_node_raw = Node(
+        package='cartographer_ros',
+        executable='cartographer_node',
+        name='cartographer_node',
+        output='screen',
+        parameters=[{'use_sim_time': use_sim_time}],
+        arguments=[
+            '-configuration_directory',
+            os.path.join(get_package_share_directory(pkg_slam), 'config'),
+            '-configuration_basename', 'my_robot_cartographer_2d.lua'
+        ],
+        remappings=[
+            ('odom', '/odometry/filtered'),
+        ],
+        condition=UnlessCondition(use_scan_filter),
     )
 
-    # ====== 2) Cartographer Occupancy Grid Node ======
+    # ====== 3) Cartographer Occupancy Grid Node ======
     # 将 /submap_list 拼接为栅格地图 /map
     cartographer_occupancy_grid_node = Node(
         package='cartographer_ros',
@@ -83,7 +129,7 @@ def generate_launch_description():
         ]
     )
 
-    # ====== 3) RViz2 ======
+    # ====== 4) RViz2 ======
     rviz_config = os.path.join(
         get_package_share_directory(pkg_robot), 'rviz', 'slam_config.rviz'
     )
@@ -101,8 +147,11 @@ def generate_launch_description():
         use_sim_time_arg,
         start_rviz_arg,
         start_gz_arg,
+        use_scan_filter_arg,
         gazebo_launch,
+        scan_filter_node,
         cartographer_node,
+        cartographer_node_raw,
         cartographer_occupancy_grid_node,
         rviz_node,
     ])

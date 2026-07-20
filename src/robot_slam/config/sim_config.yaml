@@ -1,0 +1,28 @@
+# sim_config.yaml
+#
+# 集中管理所有仿真/建图/导航配置。
+# 修改此文件即可切换场景，无需每次在命令行拼参数。
+# CLI 启动参数仍可覆盖此处的默认值（例如 world:=office_world.world）。
+#
+# 路径规则：
+#   - 以 ./ 开头：相对于此配置文件所在目录（robot_slam/config/）
+#   - 以 src/ 开头：相对于项目根目录
+#   - 绝对路径：直接使用
+
+simulation:
+  # Gazebo 世界文件 (可选: mini.world, world.world, world_dynamic.world, office_world.world)
+  world: "world_dynamic.world"
+
+  # 基本开关
+  use_sim_time: true
+  start_rviz: true
+
+scan_filter:
+  # 是否启用 Bayesian 动态障碍物扫描滤波器
+  enabled: false
+
+navigation:
+  # 纯定位模式下的地图文件 (用于 Cartographer 加载 + Hybrid A* 规划)
+  map_yaml: "src/maps/my_new_map.yaml"
+  map_pgm: "src/maps/my_new_map.pgm"
+  pbstream: "src/maps/my_new_map.pbstream"

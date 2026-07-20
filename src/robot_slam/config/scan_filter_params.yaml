@@ -1,0 +1,118 @@
+# scan_filter_params.yaml
+#
+# Parameters for the Bayesian dynamic obstacle filter (scan_filter_node).
+# Load via: ros2 run scan_filter scan_filter_node \
+#               --ros-args --params-file <path>/scan_filter_params.yaml
+#
+# ── Quick tuning guide ────────────────────────────────────────────────────────
+#
+#  Scenario: too many false positives (static walls get filtered)
+#    → raise  dyn_threshold  (e.g. 0.65 → 0.75)
+#    → raise  eps_d          (wider "same-range" tolerance, e.g. 0.30 → 0.40)
+#    → raise  temporal_smooth (more inertia, e.g. 0.5 → 0.7)
+#
+#  Scenario: dynamic people not filtered (APE still high)
+#    → lower  dyn_threshold  (e.g. 0.65 → 0.55)
+#    → lower  beta           (dynamic decay faster, e.g. 0.80 → 0.70)
+#    → lower  eps_d          (stricter "same-range" test, e.g. 0.30 → 0.20)
+#    → switch reference_mode to "median" with buffer_size 8-15
+#
+#  Scenario: robot-motion false alarms (e.g. fast turns)
+#    → raise  motion_guard_frac (e.g. 0.40 → 0.50)
+#    → raise  eps_d             (e.g. 0.30 → 0.40)
+#
+#  Scenario: person stands still for >10 s (hard case, see notes below)
+#    → raise  buffer_size to 30-60 and use reference_mode "median"
+#      (person range will be included in median; on departure the filter
+#       catches it for a short time, but steady presence is not well
+#       handled without a static map reference – ML hook placeholder)
+#
+# ── Ackermann Robot Calibration ───────────────────────────────────────────────
+#  Ackermann robot specs:
+#    Max speed:      1.5 m/s
+#    LiDAR rate:     10 Hz
+#    Max displacement/frame: 15 cm
+#
+#  eps_d (0.30 m) chosen as 2× the max per-frame displacement.
+#  At typical navigation speeds (0.3–0.8 m/s = 3–8 cm/frame) this provides
+#  4–10× safety margin, ensuring normal motion is never flagged as dynamic.
+# ─────────────────────────────────────────────────────────────────────────────
+
+/scan_filter_node:
+  ros__parameters:
+
+    # ── Topics ──────────────────────────────────────────────────────────────
+    input_scan_topic:  /scan
+    output_scan_topic: /scan_filtered
+
+    # ── Bayesian probability priors ─────────────────────────────────────────
+    # Initial belief for every beam before any data arrives.
+    prior_static:  0.5
+    prior_dynamic: 0.5
+
+    # ── Range error model ───────────────────────────────────────────────────
+    # A beam is in the "same place" as the reference if:
+    #   |r_new - r_ref| < eps_d + eps_a * r_new
+    #
+    # KEY INSIGHT: eps_d must be LARGE ENOUGH to absorb range changes caused
+    # by the robot's own motion between frames, so only dramatic drops (person
+    # appearing 1-5 m in front of a wall) produce dynamic evidence.
+    #
+    # Ackermann robot at 1.5 m/s max, 10 Hz → 15 cm/frame max.
+    # eps_d = 0.30 m gives 2× safety margin at top speed, 4–10× at typical speeds.
+    eps_a: 0.05    # proportional factor  [fraction of range]
+    eps_d: 0.30    # fixed error floor    [metres – must exceed robot motion]
+
+    # ── Bayesian transition probabilities ───────────────────────────────────
+    # alpha: P(beam stays static  | it was classified static last step)
+    # beta:  P(beam stays dynamic | it was classified dynamic last step)
+    #
+    # High alpha → static label sticky (walls survive brief fluctuations)
+    # Low  beta  → dynamic label decays fast; after person leaves, beam recovers
+    #              in ~2-3 frames instead of persisting indefinitely
+    alpha: 0.90
+    beta:  0.55    # fast decay: wrongly-flagged beams recover in 2-3 frames
+
+    # ── Detection thresholds ────────────────────────────────────────────────
+    max_dyn:       0.90
+    dyn_threshold: 0.65
+
+    # ── Temporal smoothing (c1) ─────────────────────────────────────────────
+    # With eps_d=0.30 the filter only reacts to large range drops.  We can
+    # therefore afford a moderate temporal_smooth (0.60) to get ~2-frame
+    # latency before filtering starts, without accumulating false positives.
+    temporal_smooth: 0.60
+
+    # ── Frozen reference threshold ──────────────────────────────────────────
+    # When P(dynamic)[i] exceeds this value, the frozen reference for beam i
+    # is NOT updated.  This is the core fix that prevents the reference from
+    # adapting to a persistent obstacle (person standing/walking in one place).
+    # Default 0.50 = freeze as soon as ANY dynamic evidence appears (first frame
+    # of person detection).  Raise toward dyn_threshold for less aggressiveness.
+    freeze_threshold: 0.50
+
+    # ── Numerical floor ─────────────────────────────────────────────────────
+    eps: 0.0001
+
+    # ── Reference scan buffer ───────────────────────────────────────────────
+    # reference_mode "last": compare against the immediately preceding frame.
+    # For a moving robot this is safest because both frames share the same
+    # coordinate frame offset (only 1 frame apart), and eps_d absorbs the
+    # motion-induced range difference.
+    # "median" is problematic when the robot is moving: the median of 8 frames
+    # from different positions creates a noisy, position-averaged reference.
+    buffer_size:    3
+    reference_mode: last
+
+    # ── Motion guard ────────────────────────────────────────────────────────
+    # With eps_d=0.30, most robot motion (< 30 cm/frame change) is already
+    # ignored by the Bayesian update.  The guard only needs to catch fast
+    # rotations where many beams simultaneously jump by > 30 cm.
+    # Set high (0.55) so the guard only fires during genuinely fast turns,
+    # not during normal navigation.  Watch the [guard-diag] log to tune this.
+    motion_guard_frac: 0.55
+
+    # ── ML hook ─────────────────────────────────────────────────────────────
+    # Reserved for future stronger methods.  Only "bayesian" is active now.
+    # Planned values: "ml" (learned classifier), "combined" (Bayesian + ML)
+    filter_method: bayesian
