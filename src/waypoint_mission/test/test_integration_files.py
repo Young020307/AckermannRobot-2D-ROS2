@@ -59,3 +59,4 @@ def test_readme_documents_complete_waypoint_operator_contract():
     assert '一直停车' in readme
     assert '/goal_pose' in readme
     assert '不要同时' in readme
+    assert '--qos-reliability reliable' in readme

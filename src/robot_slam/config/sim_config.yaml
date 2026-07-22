@@ -11,7 +11,7 @@
 
 simulation:
   # Gazebo 世界文件 (可选: mini.world, world.world, world_dynamic.world, office_world.world)
-  world: "world_dynamic.world"
+  world: "mini.world"
 
   # 基本开关
   use_sim_time: true

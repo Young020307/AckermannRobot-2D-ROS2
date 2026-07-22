@@ -138,8 +138,10 @@ bash scripts/nav_carto_neupan_filtered.sh
 连续点击完成后，等待状态回到 `IDLE`，再确认并启动任务：
 
 ```bash
-# 观察任务状态
-ros2 topic echo --qos-durability transient_local /waypoint_mission/status
+# 观察任务状态（ROS 2 Humble 下显式匹配发布者的 QoS）
+ros2 topic echo /waypoint_mission/status \
+  --qos-durability transient_local \
+  --qos-reliability reliable
 
 # 确认预览路线并开始第一段
 ros2 service call /waypoint_mission/plan std_srvs/srv/Trigger '{}'
