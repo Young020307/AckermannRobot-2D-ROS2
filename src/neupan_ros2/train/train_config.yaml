@@ -1,7 +1,8 @@
 # NeuPAN DUNE Training Config — Ackermann Robot (AckermannRobot-2D)
 #
-# Vehicle: 0.70m × 0.52m, wheelbase 0.593m, max steering 0.52 rad (~29.8°)
-# Min turning radius: 1.05m = wheelbase / tan(max_steering)
+# Vehicle: 0.70m × 0.52m, wheelbase 0.593m
+# Physical single-wheel limit: 0.52 rad; center-equivalent limit: 0.43 rad
+# Min turning radius: 1.30m = wheelbase / tan(center_steering_limit)
 #
 # This is a TRAINING config. The train section below defines how DUNE
 # (the obstacle-distance encoder MLP) is trained for THIS robot geometry.
@@ -19,8 +20,8 @@ collision_threshold: 0.05  # Emergency stop when obstacle within this distance (
 # ---- Robot Geometry ---------------------------------------
 robot:
   kinematics: 'acker'
-  max_speed: [1.5, 0.52]    # [linear m/s, steering rad]
-  min_speed: [-0.5, -0.52]  # Allow reverse
+  max_speed: [1.5, 0.43]    # [linear m/s, center steering rad]
+  min_speed: [-0.5, -0.43]  # Allow reverse
   max_acce: [1.0, 0.5]     # [linear m/s², angular rad/s²]
   length: 0.70              # Overall length (m)
   width: 0.52               # Overall width (m)
@@ -30,7 +31,7 @@ robot:
 ipath:
   interval: 0.1             # Waypoint spacing along path (m)
   curve_style: 'reeds'      # Reeds-Shepp: forward + reverse, ackermann-aware
-  min_radius: 1.05          # Min turn radius (m) = wheelbase / tan(0.52)
+  min_radius: 1.30          # Min turn radius (m) = wheelbase / tan(0.43)
   loop: false
   arrive_threshold: 0.5     # Considered "arrived" within this distance (m)
   close_threshold: 0.1      # Waypoint "reached" threshold (m)

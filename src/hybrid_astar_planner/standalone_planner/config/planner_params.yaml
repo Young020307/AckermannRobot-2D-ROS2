@@ -7,7 +7,7 @@
     origin_y: 0.0
 
     # ---- 车辆运动学 (小型阿克曼: 0.70m×0.52m, wheelbase=0.593m) ----
-    minimum_turning_radius: 1.05        # wheelbase / tan(max_steering) = 0.593 / tan(0.52)
+    minimum_turning_radius: 1.30        # center-equivalent limit 0.43 rad for ±0.52 rad wheel joints
     angle_quantization: 72              # 5° per bin (360/72)
     motion_model: "REEDS_SHEPP"         # 支持前进+倒车
 
